@@ -1,0 +1,13 @@
+debug: true
+
+server:
+  port: 9090
+
+security:
+  user:
+    name: max
+    password: muster
+
+logging:
+  level:
+    org.springframework.security: INFO
