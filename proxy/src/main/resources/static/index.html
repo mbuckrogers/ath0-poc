@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Auth0-VanillaJS</title>
+<meta charset="utf-8">
+<link href="css/auth-bootstrap.css" rel="stylesheet">
+
+<!-- Auth0 lock script -->
+<script src="js/auth-bootstrap.js"></script>
+
+<script src="//cdn.auth0.com/js/lock/10.1.0/lock.min.js"></script>
+
+<script src="js/auth0-variables.js"></script>
+<script src="js/app.js"></script>
+<script src="js/jwt-decode.min.js"></script>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+	<img alt="avatar" id="avatar" style="display: none;">
+	<p>
+		Welcome <span id="nickname"></span>
+	</p>
+	<button type="submit" id="btn-login">Sign In</button>
+	<button type="submit" id="btn-logout" style="display: none;">Sign Out</button>
+	
+	<button type="submit" id="btn-public">Call public rest api /unsecured))</button>
+	<button type="submit" id="btn-secured">Call secured rest api /secured)</button>
+	
+	<div id="api-result">
+	Here you will see the result of the rest api call
+	</div>
+	<div id="token-expires"></div>
+	
+</body>
+</html>
