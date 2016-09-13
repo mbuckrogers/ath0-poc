@@ -1,4 +1,4 @@
-debug: true
+debug: false
 
 server:
   port: 9090
@@ -7,6 +7,19 @@ security:
   user:
     name: max
     password: muster
+
+zuul: 
+  routes:
+    ui: /**
+    api: /api/**
+    
+ #   book:
+ #    path: /**
+ #    url: http://localhost:8080	
+ 
+ribbon:
+   eureka:
+     enabled: false
 
 logging:
   level:

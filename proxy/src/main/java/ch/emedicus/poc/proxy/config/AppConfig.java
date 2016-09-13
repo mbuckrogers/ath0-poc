@@ -41,9 +41,9 @@ public class AppConfig extends Auth0SecurityConfig {
 //                .antMatchers(HttpMethod.GET, "/api/v1/**").authenticated();
      // @formatter:off
     	System.err.println("--------> AppConfig evaluating...");
-     			http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.NEVER)
+     			http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
      			.and().authorizeRequests()
-     			.antMatchers("/", "index.html", "/*.png", "/js/**", "/unsecured/**").permitAll()
+     			.antMatchers("/", "index.html", "/*.png", "/js/**", "/api/unsecured/**").permitAll()
      			.anyRequest().authenticated();
      			// @formatter:on
     }

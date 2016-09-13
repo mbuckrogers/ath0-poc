@@ -11,7 +11,7 @@ window.addEventListener('load', function() {
     allowForgotPassword: true,
     allowSignUp: true,
     auth: {
-        params: {scope: 'openid email user_metadata'}
+        params: {scope: 'openid offline_access email user_metadata'}
       }
   });
   
@@ -35,17 +35,25 @@ window.addEventListener('load', function() {
   document.getElementById('btn-secured').addEventListener('click', function() {
     callapi('secured');
   })
+  
+  document.getElementById('btn-renewtoken').addEventListener('click', function() {
+    renewtoken();
+  })
  
 
   lock.on("authenticated", function(authResult) {
+	localStorage.setItem('id_token', authResult.idToken);
     lock.getProfile(authResult.idToken, function(error, profile) {
       if (error) {
         // Handle error
         return;
       }
-      localStorage.setItem('id_token', authResult.idToken);
+      
       display_user_profile(profile);
     });
+    
+    storeRefreshToken(authResult.refreshToken);
+    
   });
 
   var parseHash = function() {
@@ -88,19 +96,61 @@ window.addEventListener('load', function() {
 	  }
   }
   
+  function renewtoken() {
+	  var headers = insertAuthentication();
+	  $.ajax({
+		  url: 'renewtoken', 
+		  headers: headers,
+		  success: function(result){
+			  localStorage.setItem('id_token', result);
+			  $("#api-result").html(result);
+          },
+          error: function(jqXHR, textStatus, errorThrown){
+        	  $("#api-result").html(jqXHR.status);
+          }
+    });
+  }
   
-  var callapi = function(uri) {
-	  var id_token = localStorage.getItem('id_token');
+  function storeRefreshToken(refreshToken) {
+	  var headers = insertAuthentication();
+	  var data = {'refreshToken': refreshToken};
+	  
+	  console.log(data)
+	  $.ajax({
+		  type: "POST",
+		  url: 'storerefresh', 
+		  headers: headers,
+		  data: data,
+		  success: function(result){
+			  $("#api-result").html(result);
+          },
+          error: function(jqXHR, textStatus, errorThrown){
+        	  $("#api-result").html(jqXHR.status);
+          }
+    });
+	  
+  }
+  
+  
+  function insertAuthentication() {
 	  var headers = {};
+	  var id_token = localStorage.getItem('id_token');
 	  if(id_token) {
 		  var decoded = jwt_decode(id_token);
 		  // Has the token expired?
 		  if(decoded.exp * 1000 > new Date().valueOf()) {
-			  headers = {'Authorization':  'Bearer ' + id_token};
+			  headers = {'Authorization':  'Bearer ' + id_token,
+					  'Content-Type': 'application/json'};
+			  // headers.Authorization = 'Bearer ' + id_token;
 		  } else {
 			  localStorage.removeItem('id_token');
 		  }
 	  }
+	  return headers;
+  }
+  
+  var callapi = function(uri) {
+	  headers = insertAuthentication();
 	  
 	  $.ajax({url: uri, 
 		  headers: headers,
