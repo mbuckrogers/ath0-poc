@@ -2,12 +2,12 @@ package ch.emedicus.poc.proxy.config;
 
 import java.security.Principal;
 
+import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cloud.netflix.zuul.EnableZuulProxy;
 import org.springframework.cloud.netflix.zuul.EnableZuulServer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -25,13 +25,13 @@ import com.auth0.authentication.AuthenticationAPIClient;
 @SpringBootApplication
 @EnableAutoConfiguration
 @RestController
-@EnableZuulProxy
+@EnableZuulServer
 @ComponentScan(basePackages = {"com.auth0.spring.security.api"})
 @Import({AppConfig.class})
 @PropertySources({
 		@PropertySource("classpath:auth0.properties")
 })
-@RequestMapping("/api")
+//@RequestMapping("/api")
 public class App {
 
 	public static void main(String[] args) {
@@ -58,9 +58,15 @@ public class App {
 //	}
 	
 	
+	@RequestMapping(value="/mycallback")
+	public void mycallback(HttpServletResponse httpServletResponse) {
+		System.err.println("My callback");
+		httpServletResponse.setHeader("Location", "https://thelf.eu.auth0.com/continue");
+	}
+	
 	@RequestMapping("/secured")
 	public String onlyAuthorized(HttpSession session, Principal user) {
-		String username = user != null ? user.getName() : "Principal is null";
+		String username = user != null ? user.getName() : "Principal is null!";
 		
 		return "If you (" + username + ") see this then you just called a secured rest api";
 	}
@@ -78,11 +84,13 @@ public class App {
 			String[] parts = refreshToken.split("=");
 			String tokenValue = parts[1];
 			session.setAttribute("refreshToken", tokenValue);
+			
 		}
 	}
 	
-	@RequestMapping("/renewtoken")
+	@RequestMapping(value="/renewtoken", method = RequestMethod.POST)
 	public String renewIdToken(HttpSession session) {
+		
 		String refreshToken = (String) session.getAttribute("refreshToken");
 		String renewedIdToken = null;
 		if(refreshToken != null) {

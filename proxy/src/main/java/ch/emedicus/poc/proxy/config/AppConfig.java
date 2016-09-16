@@ -7,7 +7,10 @@ import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.context.SecurityContextPersistenceFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 
+import com.auth0.spring.security.api.Auth0AuthenticationFilter;
 import com.auth0.spring.security.api.Auth0SecurityConfig;
 
 
@@ -31,6 +34,25 @@ public class AppConfig extends Auth0SecurityConfig {
      *  Here we choose not to bother using the `auth0.securedRoute` property configuration
      *  and instead ensure any unlisted endpoint in our config is secured by default
      */
+    
+    
+    
+    @Override
+    protected void configure(final HttpSecurity http) throws Exception {
+        // Add Auth0 Authentication Filter
+        http.addFilterAfter(auth0AuthenticationFilter(auth0AuthenticationEntryPoint()), SecurityContextPersistenceFilter.class)
+                .addFilterBefore(simpleCORSFilter(), Auth0AuthenticationFilter.class);
+
+        // Apply the Authentication and Authorization Strategies your application endpoints require
+        authorizeRequests(http);
+
+        // STATELESS - we want re-authentication of JWT token on every request
+        http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED);
+        http.csrf()
+		.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse());
+        
+    }
+    
     @Override
     protected void authorizeRequests(final HttpSecurity http) throws Exception {
         // include some Spring Boot Actuator endpoints to check metrics
@@ -41,9 +63,8 @@ public class AppConfig extends Auth0SecurityConfig {
 //                .antMatchers(HttpMethod.GET, "/api/v1/**").authenticated();
      // @formatter:off
     	System.err.println("--------> AppConfig evaluating...");
-     			http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
-     			.and().authorizeRequests()
-     			.antMatchers("/", "index.html", "/*.png", "/js/**", "/api/unsecured/**").permitAll()
+     			http.authorizeRequests()
+     			.antMatchers("/", "index.html", "/*.png", "/js/**", "/renewtoken/**", "/unsecured/**").permitAll()
      			.anyRequest().authenticated();
      			// @formatter:on
     }
