@@ -12,15 +12,12 @@ window.addEventListener('load', function () {
     allowSignUp: true,
 	
     auth: {
-      params: {client: 'browser'},
-      redirect: true,
-      redirectUrl: location.href + 'redirect',
-      responseMode: 'form_post',
-      responseType: "id_token",
-      params: { scope: 'openid offline_access email user_metadata xsrf_token' }
+      params: { scope: 'openid  email user_metadata xsrf_token' }
     }
   });
 
+  var auth0 = new Auth0({clientID: AUTH0_CLIENT_ID, domain: AUTH0_DOMAIN});
+  
 
 
 
@@ -35,18 +32,7 @@ window.addEventListener('load', function () {
       }
       display_user_profile(profile);
     });
-  } else {
-    // try to automatically login with the refresh cookie
-    console.log("Trying to renew id_token")
-    //renewtoken();
-  }
-
-
-  /* window.onbeforeunload = function() {
-     console.log('Logout as well');
-     logout();
-   }
-   */
+  } 
 
   document.getElementById('btn-login').addEventListener('click', function () {
     lock.show();
@@ -69,33 +55,29 @@ window.addEventListener('load', function () {
   })
 
 
-// document.ready(function(){
-//     function getCookie(c_name) {
-//         if(document.cookie.length > 0) {
-//             c_start = document.cookie.indexOf(c_name + "=");
-//             if(c_start != -1) {
-//                 c_start = c_start + c_name.length + 1;
-//                 c_end = document.cookie.indexOf(";", c_start);
-//                 if(c_end == -1) c_end = document.cookie.length;
-//                 return unescape(document.cookie.substring(c_start,c_end));
-//             }
-//         }
-//         return "";
-//     }
+ var renewtoken = function() {
+   if(validToken && calcExpiresIn() < 7000) {
+    var token = readJwt();
+    var headers = insertAuthentication();
 
-//     $(function () {
-//         $.ajaxSetup({
-//             headers: {
-//                 "X-XSRF-TOKEN": getCookie("XSRF-TOKEN")
-//             }
-//         });
-//     });
-// });
-
+      $.ajax({
+        url: 'renew',
+        headers: headers,
+        success: function (result) {
+          localStorage.setItem('id_token', result);
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          $("#api-result").html(jqXHR.status);
+        }
+      });
+   }
+ }
 
 
   lock.on("authenticated", function (authResult) {
-    // localStorage.setItem('id_token', authResult.idToken);
+    console.log(authResult);
+    localStorage.setItem('id_token', authResult.idToken);
+    var renewTokenTimer = setInterval(renewtoken,  2000);
     lock.getProfile(authResult.idToken, function (error, profile) {
       if (error) {
         // Handle error
@@ -104,13 +86,10 @@ window.addEventListener('load', function () {
 
       display_user_profile(profile);
     });
-
-    storeRefreshToken(authResult.refreshToken, authResult.idToken);
-
   });
 
   function readJwt() {
-    var jwt = Cookies.get('jwt');
+    var jwt = localStorage.getItem('id_token')
     return jwt;
   }
 
@@ -136,72 +115,44 @@ window.addEventListener('load', function () {
 
   var logout = function () {
     localStorage.removeItem('id_token');
-    Cookies.expire('jwt');
     lock.logout();
-    window.location.href = 'https://thelf.eu.auth0.com/v2/logout?client_id=' + AUTH0_CLIENT_ID + 
-    '&returnTo=' + location.href;
+    window.location.href = 'https://' + AUTH0_DOMAIN + '/v2/logout?client_id=' + AUTH0_CLIENT_ID + '&returnTo=' + location.href;
   };
 
   var tokenExpires = setInterval(myTimer, 1000);
+
+  function calcExpiresIn() {
+    var id_token =  readJwt();
+    var expiresIn = -1;
+    if (id_token) {
+      var decoded = jwt_decode(id_token);
+      expiresIn = decoded.exp * 1000 - new Date().valueOf()
+    }
+    return expiresIn;
+  }
 
   function myTimer() {
     var id_token =  readJwt();
     if (id_token) {
       var decoded = jwt_decode(id_token);
-      if (decoded.exp * 1000 > new Date().valueOf()) {
-        $("#token-expires").html("Token expires in " + (decoded.exp * 1000 - new Date().valueOf()) + " [ms]");
+      if (calcExpiresIn() > 0) {
+        $("#token-expires").html("Token expires in " + calcExpiresIn() + " [ms]");
       } else {
         $("#token-expires").html("Token has expired");
       }
     }
   }
 
-  function renewtoken() {
-    var headers = insertAuthentication();
-    $.ajax({
-      type: "POST",
-      url: 'renewtoken',
-      headers: headers,
-      success: function (data, textStatus, request) {
-        $("#api-result").html(textStatus);
-      },
-      error: function (jqXHR, textStatus, errorThrown) {
-        $("#api-result").html(jqXHR.status);
-      }
-    });
-  }
-
-  function storeRefreshToken(refreshToken, id_token) {
-    var headers = insertAuthentication();
-    var data = { refreshToken: refreshToken,  id_token: id_token};
-
-
-    console.log(JSON.stringify(data))
-    $.ajax({
-      type: "POST",
-      url: 'storerefresh',
-      headers: {'Authorization': 'Bearer ' + id_token,
-                'Content-Type': 'application/json'}, 
-      data: JSON.stringify(data),
-      success: function (result) {
-        $("#api-result").html(result);
-      },
-      error: function (jqXHR, textStatus, errorThrown) {
-        $("#api-result").html(jqXHR.status);
-      }
-    });
-
-  }
-
+ 
   function validToken() {
-    var jwt = Cookies.get('jwt');
+    var jwt =  readJwt();
     var valid = false;
     if(jwt) {
       var decoded = jwt_decode(jwt);
       valid =  (decoded.exp * 1000 > new Date().valueOf());
       // not valid remove
       if(!valid) {
-        Cookies.remove('jwt')
+        localStorage.removeItem('id_token');
       }
     } 
     return valid;
@@ -211,20 +162,10 @@ window.addEventListener('load', function () {
 
   function insertAuthentication() {
     var headers = {};
-    // var id_token = localStorage.getItem('id_token');
-    // if (id_token) {
-    //   var decoded = jwt_decode(id_token);
-    //   // Has the token expired?
-    //   if (decoded.exp * 1000 > new Date().valueOf()) {
-    //     headers = {
-    //       'Authorization': 'Bearer ' + id_token,
-    //       'Content-Type': 'application/json'
-    //     };
-    //     // headers.Authorization = 'Bearer ' + id_token;
-    //   } else {
-    //     localStorage.removeItem('id_token');
-    //   }
-    // }
+    var id_token = readJwt();
+    if(validToken()) {
+          headers = { 'Authorization': 'Bearer ' + id_token};
+    }
     return headers;
   }
 
@@ -242,6 +183,4 @@ window.addEventListener('load', function () {
       }
     });
   };
-
-  parseHash();
 });
