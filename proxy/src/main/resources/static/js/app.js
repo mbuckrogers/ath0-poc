@@ -7,36 +7,40 @@ window.addEventListener('load', function () {
     languageDictionary: {
       title: "E-Medicus"
     },
-    rememberLastLogin: false,
+    rememberLastLogin: true,
     allowForgotPassword: true,
     allowSignUp: true,
+	
     auth: {
+      params: {client: 'browser'},
       redirect: true,
+      redirectUrl: location.href + 'redirect',
       responseMode: 'form_post',
-      params: { scope: 'openid offline_access email user_metadata' }
+      responseType: "id_token",
+      params: { scope: 'openid offline_access email user_metadata xsrf_token' }
     }
   });
 
+
+
+
   // Check if we are still logged in
-  var id_token = localStorage.getItem('id_token');
-  if(id_token) {
-    // is it still valid
-    if(validToken(id_token)) {
-      // we can load the profile
-      lock.getProfile(authResult.idToken, function (error, profile) {
+  // is it still valid
+  if (validToken()) {
+    // we can load the profile
+    lock.getProfile(readJwt(), function (error, profile) {
       if (error) {
         // Handle error
         return;
       }
-
       display_user_profile(profile);
     });
-    } else {
-      // try to automatically login with the refresh cookie
-      console.log("Trying to renew id_token")
-      renewtoken();
-    }
+  } else {
+    // try to automatically login with the refresh cookie
+    console.log("Trying to renew id_token")
+    //renewtoken();
   }
+
 
   /* window.onbeforeunload = function() {
      console.log('Logout as well');
@@ -65,33 +69,33 @@ window.addEventListener('load', function () {
   })
 
 
-$(document).ready(function(){
-    function getCookie(c_name) {
-        if(document.cookie.length > 0) {
-            c_start = document.cookie.indexOf(c_name + "=");
-            if(c_start != -1) {
-                c_start = c_start + c_name.length + 1;
-                c_end = document.cookie.indexOf(";", c_start);
-                if(c_end == -1) c_end = document.cookie.length;
-                return unescape(document.cookie.substring(c_start,c_end));
-            }
-        }
-        return "";
-    }
+// document.ready(function(){
+//     function getCookie(c_name) {
+//         if(document.cookie.length > 0) {
+//             c_start = document.cookie.indexOf(c_name + "=");
+//             if(c_start != -1) {
+//                 c_start = c_start + c_name.length + 1;
+//                 c_end = document.cookie.indexOf(";", c_start);
+//                 if(c_end == -1) c_end = document.cookie.length;
+//                 return unescape(document.cookie.substring(c_start,c_end));
+//             }
+//         }
+//         return "";
+//     }
 
-    $(function () {
-        $.ajaxSetup({
-            headers: {
-                "X-XSRF-TOKEN": getCookie("XSRF-TOKEN")
-            }
-        });
-    });
-});
+//     $(function () {
+//         $.ajaxSetup({
+//             headers: {
+//                 "X-XSRF-TOKEN": getCookie("XSRF-TOKEN")
+//             }
+//         });
+//     });
+// });
 
 
 
   lock.on("authenticated", function (authResult) {
-    localStorage.setItem('id_token', authResult.idToken);
+    // localStorage.setItem('id_token', authResult.idToken);
     lock.getProfile(authResult.idToken, function (error, profile) {
       if (error) {
         // Handle error
@@ -101,12 +105,17 @@ $(document).ready(function(){
       display_user_profile(profile);
     });
 
-    storeRefreshToken(authResult.refreshToken);
+    storeRefreshToken(authResult.refreshToken, authResult.idToken);
 
   });
 
+  function readJwt() {
+    var jwt = Cookies.get('jwt');
+    return jwt;
+  }
+
   var parseHash = function () {
-    var id_token = localStorage.getItem('id_token');
+    var id_token = readJwt();
     if (id_token) {
       lock.getProfile(id_token, function (err, profile) {
         if (err) {
@@ -127,20 +136,22 @@ $(document).ready(function(){
 
   var logout = function () {
     localStorage.removeItem('id_token');
+    Cookies.expire('jwt');
     lock.logout();
-    window.location.href = "/";
+    window.location.href = 'https://thelf.eu.auth0.com/v2/logout?client_id=' + AUTH0_CLIENT_ID + 
+    '&returnTo=' + location.href;
   };
 
-  var tokenExpires = setInterval(myTimer, 10000);
+  var tokenExpires = setInterval(myTimer, 1000);
 
   function myTimer() {
-    var id_token = localStorage.getItem('id_token');
+    var id_token =  readJwt();
     if (id_token) {
       var decoded = jwt_decode(id_token);
       if (decoded.exp * 1000 > new Date().valueOf()) {
         $("#token-expires").html("Token expires in " + (decoded.exp * 1000 - new Date().valueOf()) + " [ms]");
       } else {
-        localStorage.removeItem('id_token');
+        $("#token-expires").html("Token has expired");
       }
     }
   }
@@ -152,8 +163,7 @@ $(document).ready(function(){
       url: 'renewtoken',
       headers: headers,
       success: function (data, textStatus, request) {
-        localStorage.setItem('id_token', data);
-        $("#api-result").html(result);
+        $("#api-result").html(textStatus);
       },
       error: function (jqXHR, textStatus, errorThrown) {
         $("#api-result").html(jqXHR.status);
@@ -161,16 +171,18 @@ $(document).ready(function(){
     });
   }
 
-  function storeRefreshToken(refreshToken) {
+  function storeRefreshToken(refreshToken, id_token) {
     var headers = insertAuthentication();
-    var data = { 'refreshToken': refreshToken };
+    var data = { refreshToken: refreshToken,  id_token: id_token};
 
-    console.log(data)
+
+    console.log(JSON.stringify(data))
     $.ajax({
       type: "POST",
       url: 'storerefresh',
-      headers: headers,
-      data: data,
+      headers: {'Authorization': 'Bearer ' + id_token,
+                'Content-Type': 'application/json'}, 
+      data: JSON.stringify(data),
       success: function (result) {
         $("#api-result").html(result);
       },
@@ -181,29 +193,38 @@ $(document).ready(function(){
 
   }
 
-  function validToken(idtoken) {
-    var decoded = jwt_decode(id_token);
-    return  false; // (decoded.exp * 1000 > new Date().valueOf());
+  function validToken() {
+    var jwt = Cookies.get('jwt');
+    var valid = false;
+    if(jwt) {
+      var decoded = jwt_decode(jwt);
+      valid =  (decoded.exp * 1000 > new Date().valueOf());
+      // not valid remove
+      if(!valid) {
+        Cookies.remove('jwt')
+      }
+    } 
+    return valid;
   }
 
 
 
   function insertAuthentication() {
     var headers = {};
-    var id_token = localStorage.getItem('id_token');
-    if (id_token) {
-      var decoded = jwt_decode(id_token);
-      // Has the token expired?
-      if (decoded.exp * 1000 > new Date().valueOf()) {
-        headers = {
-          'Authorization': 'Bearer ' + id_token,
-          'Content-Type': 'application/json'
-        };
-        // headers.Authorization = 'Bearer ' + id_token;
-      } else {
-        localStorage.removeItem('id_token');
-      }
-    }
+    // var id_token = localStorage.getItem('id_token');
+    // if (id_token) {
+    //   var decoded = jwt_decode(id_token);
+    //   // Has the token expired?
+    //   if (decoded.exp * 1000 > new Date().valueOf()) {
+    //     headers = {
+    //       'Authorization': 'Bearer ' + id_token,
+    //       'Content-Type': 'application/json'
+    //     };
+    //     // headers.Authorization = 'Bearer ' + id_token;
+    //   } else {
+    //     localStorage.removeItem('id_token');
+    //   }
+    // }
     return headers;
   }
 
