@@ -5,6 +5,8 @@ import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -31,6 +33,8 @@ import com.auth0.authentication.result.Delegation;
 })
 
 public class App {
+	
+	private final Logger log = LoggerFactory.getLogger(this.getClass());
 	
 	public static void main(String[] args) {
 		SpringApplication.run(App.class, args);
@@ -61,9 +65,9 @@ public class App {
 		Auth0 auth0 = new Auth0("iRotCpUYyfUFLSZKcdOp9QxNptKjiHrx", "thelf.eu.auth0.com");
 		AuthenticationAPIClient client = auth0.newAuthenticationAPIClient();
 		Delegation delegation = client.delegationWithIdToken(token).execute();
+		log.info("Renewed token");
 		System.err.println("Renewed token");
 		return delegation.getIdToken();
-		
 	}
 	
 	private String getToken(HttpServletRequest httpRequest) {

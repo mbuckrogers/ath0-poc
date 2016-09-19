@@ -56,7 +56,7 @@ window.addEventListener('load', function () {
 
 
  var renewtoken = function() {
-   if(validToken && calcExpiresIn() < 7000) {
+   if(validToken && calcExpiresIn() < 30000) {
     var token = readJwt();
     var headers = insertAuthentication();
 
@@ -77,7 +77,7 @@ window.addEventListener('load', function () {
   lock.on("authenticated", function (authResult) {
     console.log(authResult);
     localStorage.setItem('id_token', authResult.idToken);
-    var renewTokenTimer = setInterval(renewtoken,  2000);
+    var renewTokenTimer = setInterval(renewtoken,  5000);
     lock.getProfile(authResult.idToken, function (error, profile) {
       if (error) {
         // Handle error
