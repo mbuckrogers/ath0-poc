@@ -1,0 +1,18 @@
+debug: false
+
+server:
+  port: 8090
+#  session:
+#    session timeout one day
+#    timeout: 86400
+
+security:
+  basic:
+    enabled: false
+management:
+  security:
+     enabled: false
+     
+logging:
+  level:
+    org.springframework.security: INFO

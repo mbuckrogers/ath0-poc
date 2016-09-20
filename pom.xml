@@ -6,5 +6,7 @@
   <packaging>pom</packaging>
   <modules>
   	<module>proxy</module>
+  	<module>auth</module>
+  	<module>service</module>
   </modules>
 </project>

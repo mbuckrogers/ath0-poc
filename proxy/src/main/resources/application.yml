@@ -2,23 +2,27 @@ debug: false
 
 server:
   port: 9090
-  session:
-    # session timeout one day
-    timeout: 86400
+#  session:
+#    session timeout one day
+#    timeout: 86400
 
 security:
   user:
     name: max
     password: muster
 
-#zuul: 
-#  routes:
-#    ui: /**
-#    api: /api/**
+zuul: 
+  sensitiveHeaders: 
+  routes:
+    auth: 
+      path: /auth/**
+      url: http://localhost:8090
     
- #   book:
- #    path: /**
- #    url: http://localhost:8080	
+    api: 
+      path: /api/**
+      url: http://localhost:8100
+    
+
  
 ribbon:
    eureka:

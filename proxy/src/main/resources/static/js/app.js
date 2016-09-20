@@ -51,17 +51,16 @@ window.addEventListener('load', function () {
   })
 
   document.getElementById('btn-renewtoken').addEventListener('click', function () {
-    renewtoken();
+    renewtoken(true);
   })
 
-
- var renewtoken = function() {
-   if(validToken && calcExpiresIn() < 30000) {
+ var renewtoken = function(byPassCheck) {
+   if(byPassCheck  || (validToken && calcExpiresIn() < 30000)) {
     var token = readJwt();
     var headers = insertAuthentication();
 
       $.ajax({
-        url: 'renew',
+        url: 'auth/renew',
         headers: headers,
         success: function (result) {
           localStorage.setItem('id_token', result);
@@ -73,11 +72,14 @@ window.addEventListener('load', function () {
    }
  }
 
+var renewtokenCheck = function() {
+   return renewtoken(false);
+ }
 
   lock.on("authenticated", function (authResult) {
     console.log(authResult);
     localStorage.setItem('id_token', authResult.idToken);
-    var renewTokenTimer = setInterval(renewtoken,  5000);
+    var renewTokenTimer = setInterval(renewtokenCheck,  5000);
     lock.getProfile(authResult.idToken, function (error, profile) {
       if (error) {
         // Handle error
@@ -119,7 +121,7 @@ window.addEventListener('load', function () {
     window.location.href = 'https://' + AUTH0_DOMAIN + '/v2/logout?client_id=' + AUTH0_CLIENT_ID + '&returnTo=' + location.href;
   };
 
-  var tokenExpires = setInterval(myTimer, 1000);
+  var tokenExpires = setInterval(myTimer, 5000);
 
   function calcExpiresIn() {
     var id_token =  readJwt();
@@ -173,7 +175,7 @@ window.addEventListener('load', function () {
     headers = insertAuthentication();
 
     $.ajax({
-      url: uri,
+      url: 'api/' + uri,
       headers: headers,
       success: function (result) {
         $("#api-result").html(result);
