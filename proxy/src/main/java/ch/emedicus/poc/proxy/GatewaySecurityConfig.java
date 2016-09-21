@@ -17,7 +17,9 @@ import org.springframework.security.web.context.SecurityContextPersistenceFilter
 import com.auth0.jwt.Algorithm;
 import com.auth0.spring.security.api.Auth0AuthenticationEntryPoint;
 import com.auth0.spring.security.api.Auth0AuthenticationFilter;
+import com.auth0.spring.security.api.Auth0AuthenticationProvider;
 import com.auth0.spring.security.api.Auth0AuthorityStrategy;
+import com.auth0.spring.security.api.authority.AuthorityStrategy;
 
 /**
  *  Auth0 Security Config that wires together dependencies required
@@ -63,6 +65,11 @@ public class GatewaySecurityConfig extends WebSecurityConfigurerAdapter {
      */
     @Value(value = "${auth0.publicKeyPath:}")
     protected String publicKeyPath;
+    
+    @Bean
+    PublicKeyUtil publicKeyUtil() {
+    	return new PublicKeyUtil();
+    }
 
     @Autowired
     @SuppressWarnings("SpringJavaAutowiringInspection")
@@ -76,21 +83,27 @@ public class GatewaySecurityConfig extends WebSecurityConfigurerAdapter {
         return new Auth0Client(clientId, issuer);
     }
 
-//    @Bean
-//    public Auth0CORSFilter simpleCORSFilter() {
-//        return new Auth0CORSFilter();
-//    }
-
-    @Bean
-    public GatewayAuthenticationProvider auth0AuthenticationProvider() {
-        // First check the authority strategy configured for the API
+    @Bean(name = "authorityStrategy")
+    public AuthorityStrategy authorityStrategy() {
         if (!Auth0AuthorityStrategy.contains(this.authorityStrategy)) {
             throw new IllegalStateException("Configuration error, illegal authority strategy");
         }
-		final Auth0AuthorityStrategy authorityStrategy = Auth0AuthorityStrategy.valueOf(this.authorityStrategy);
-        final GatewayAuthenticationProvider authenticationProvider = new GatewayAuthenticationProvider(
-        		domain, issuer, clientId, clientSecret, securedRoute, authorityStrategy, base64EncodedSecret, 
-        		Algorithm.valueOf(this.signingAlgorithm), publicKeyPath);
+        return Auth0AuthorityStrategy.valueOf(this.authorityStrategy).getStrategy();
+    }
+
+    @Bean(name = "auth0AuthenticationProvider")
+    public GatewayAuthenticationProvider auth0AuthenticationProvider() {
+        final GatewayAuthenticationProvider authenticationProvider = new GatewayAuthenticationProvider();
+        authenticationProvider.setDomain(domain);
+        authenticationProvider.setIssuer(issuer);
+        authenticationProvider.setClientId(clientId);
+        authenticationProvider.setClientSecret(clientSecret);
+        authenticationProvider.setSecuredRoute(securedRoute);
+        authenticationProvider.setAuthorityStrategy(authorityStrategy());
+        authenticationProvider.setBase64EncodedSecret(base64EncodedSecret);
+        authenticationProvider.setSigningAlgorithm(Algorithm.valueOf(this.signingAlgorithm));
+        authenticationProvider.setPublicKeyPath(this.publicKeyPath);
+        authenticationProvider.setPkUtil(publicKeyUtil());
         return authenticationProvider;
     }
 
